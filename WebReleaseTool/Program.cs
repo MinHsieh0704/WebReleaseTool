@@ -51,8 +51,10 @@ namespace WebReleaseTool
 
                 JObject packageJson = JsonConvert.DeserializeObject<JObject>(File.ReadAllText($"{workspacePath}\\package.json"));
                 string projectName = packageJson["name"].ToString();
-                string projectVersion = packageJson["version"].ToString();
+                string projectVersion = (packageJson["srcversion"] ?? packageJson["version"]).ToString();
                 string projectDescription = packageJson["description"].ToString();
+
+                bool hasSrcVersion = packageJson["srcversion"] != null;
 
                 PrintService.Write("Project Name: ", Print.EMode.info);
                 PrintService.WriteLine(projectName, Print.EMode.message);
@@ -81,7 +83,10 @@ namespace WebReleaseTool
                         JObject input = JsonConvert.DeserializeObject<JObject>(File.ReadAllText(paths[i]));
 
                         if (input["name"] != null) input["name"] = projectName;
-                        if (input["version"] != null) input["version"] = projectNewVersion;
+
+                        if (path.IndexOf("lock") > -1) input["version"] = !hasSrcVersion ? projectNewVersion : packageJson["version"].ToString();
+                        else if (input["srcversion"] != null) input["srcversion"] = projectNewVersion;
+                        else input["version"] = projectNewVersion;
 
                         File.WriteAllText(paths[i], JsonConvert.SerializeObject(input, Formatting.Indented) + "\n");
 
@@ -121,6 +126,8 @@ namespace WebReleaseTool
                     PrintService.WriteLine($"Git Commit Success", Print.EMode.success);
                     Thread.Sleep(10);
 
+                    if (!Directory.Exists($"{workspacePath}\\public"))
+                        Directory.CreateDirectory($"{workspacePath}\\public");
                     if (File.Exists($"{workspacePath}\\public\\change.log"))
                         File.Delete($"{workspacePath}\\public\\change.log");
 
